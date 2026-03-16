@@ -9,6 +9,9 @@ Included demo DAGs:
 - `ai_support_router`: structured ticket triage with `@task.llm` plus deterministic Python routing
 - `ai_ops_agent`: an agentic helper with `@task.agent` and local tools
 - `spark_ai_lineage_demo`: an AI-assisted Spark run that emits lineage to Marquez via OpenLineage
+- `hitl_data_quality_exception_review`: branch-based human review of failed quality checks
+- `hitl_schema_change_approval`: human approval gate for detected schema diffs
+- `hitl_backfill_approval`: human approval workflow for controlled backfills
 
 It is meant to be a practical local sandbox for Airflow-native AI tasks, not a production-ready deployment.
 
@@ -131,6 +134,21 @@ This DAG does three things:
 3. asks an agent to summarize the resulting metrics and curated output
 
 The Spark command includes the OpenLineage listener and publishes to Marquez.
+
+### 4. HITL samples
+
+The repo also includes three Human-in-the-Loop samples based on Airflow 3 HITL operators:
+
+- `hitl_data_quality_exception_review`
+  Uses `HITLEntryOperator` and `HITLBranchOperator` so a human can capture incident context and choose whether to quarantine, release with warning, or rerun upstream jobs.
+
+- `hitl_schema_change_approval`
+  Uses `HITLEntryOperator` plus `ApprovalOperator` to review schema diffs and gate downstream rollout.
+
+- `hitl_backfill_approval`
+  Uses `HITLEntryOperator` plus `ApprovalOperator` to capture backfill run controls and require approval before execution.
+
+In Airflow UI, open the HITL task instance and use the Required Actions panel to respond.
 
 ## Dependency note
 
