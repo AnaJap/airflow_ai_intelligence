@@ -2,6 +2,7 @@
 Spark + Airflow AI SDK example with Marquez/OpenLineage integration.
 """
 
+import os
 from pathlib import Path
 
 import pendulum
@@ -19,13 +20,14 @@ ROOT = Path("/opt/airflow")
 RAW_ORDERS_PATH = ROOT / "include" / "raw" / "orders.json"
 CURATED_ORDERS_PATH = ROOT / "include" / "processed" / "orders_curated"
 METRICS_PATH = ROOT / "include" / "processed" / "orders_metrics.json"
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "ollama:llama3.2")
 
 RAW_ORDERS = Dataset("file:///opt/airflow/include/raw/orders.json")
 CURATED_ORDERS = Dataset("file:///opt/airflow/include/processed/orders_curated")
 
 
 @task.llm(
-    model="gpt-4o-mini",
+    model=DEFAULT_MODEL,
     output_type=str,
     system_prompt="""
     You are preparing a Spark transformation run.
@@ -52,7 +54,7 @@ def preview_curated_data() -> str:
 
 
 run_summary_agent = Agent(
-    "o3-mini",
+    DEFAULT_MODEL,
     system_prompt="""
     You are summarizing the outcome of a local Spark data pipeline run.
     Use the available tools and mention both data quality and lineage visibility.
@@ -76,7 +78,7 @@ def print_summary(summary: str) -> None:
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     schedule=None,
     catchup=False,
-    tags=["spark", "ai-sdk", "openlineage"],
+    tags=["spark", "ai-sdk", "openlineage", "ollama"],
 )
 def spark_ai_lineage_demo():
     preflight_note = create_preflight_note()

@@ -24,6 +24,9 @@ x-airflow-common: &airflow-common
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
     AIRFLOW__WEBSERVER__RBAC: "True"
     AIRFLOW__WEBSERVER__SECRET_KEY: airflow-ai-sdk-demo
+    LLM_MODEL: ${LLM_MODEL:-ollama:llama3.2}
+    OLLAMA_API_KEY: ${OLLAMA_API_KEY:-ollama}
+    OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
     OPENLINEAGE_DISABLED: "False"
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   volumes:
@@ -33,12 +36,44 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
   depends_on:
+    ollama:
+      condition: service_healthy
+    ollama-pull:
+      condition: service_completed_successfully
     postgres:
       condition: service_healthy
     marquez:
       condition: service_started
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL_NAME: ${OLLAMA_MODEL_NAME:-llama3.2}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - ollama pull "$${OLLAMA_MODEL_NAME}"
+    restart: "no"
+
   postgres:
     image: postgres:16
     environment:
@@ -147,3 +182,4 @@ services:
 
 volumes:
   postgres_data:
+  ollama_data:

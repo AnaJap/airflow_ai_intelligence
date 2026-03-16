@@ -1,8 +1,12 @@
 # Airflow 3 + `airflow-ai-sdk` Demo
 
-This repository starts Apache Airflow 3.1.8 in Docker, installs Astronomer's [`airflow-ai-sdk`](https://github.com/astronomer/airflow-ai-sdk/tree/main), and ships a few runnable demo DAGs:
+This repository starts Apache Airflow 3.1.8 in Docker, installs Astronomer's [`airflow-ai-sdk`](https://github.com/astronomer/airflow-ai-sdk/tree/main), and ships a few runnable demo DAGs.
 
-- `ai_support_router`: structured ticket triage with `@task.llm` and `@task.llm_branch`
+By default, the AI tasks run against a local Ollama model so you can use the project without OpenAI API credits. The OpenAI-based setup still remains possible by changing environment variables.
+
+Included demo DAGs:
+
+- `ai_support_router`: structured ticket triage with `@task.llm` plus deterministic Python routing
 - `ai_ops_agent`: an agentic helper with `@task.agent` and local tools
 - `spark_ai_lineage_demo`: an AI-assisted Spark run that emits lineage to Marquez via OpenLineage
 
@@ -11,6 +15,7 @@ It is meant to be a practical local sandbox for Airflow-native AI tasks, not a p
 ## What is included
 
 - Airflow 3.1.8 split services: `api-server`, `scheduler`, `dag-processor`, and `triggerer`
+- Ollama for local LLM inference, plus an automatic model pull step
 - Postgres for Airflow metadata and Marquez metadata
 - Marquez API and UI for browsing lineage
 - A custom Airflow image with:
@@ -22,7 +27,8 @@ It is meant to be a practical local sandbox for Airflow-native AI tasks, not a p
 ## Prerequisites
 
 - Docker Desktop running
-- An OpenAI API key if you want the AI SDK tasks to execute
+
+You do not need an OpenAI API key for the default setup.
 
 ## Quick start
 
@@ -32,28 +38,65 @@ It is meant to be a practical local sandbox for Airflow-native AI tasks, not a p
 cp .env.example .env
 ```
 
-2. Set `OPENAI_API_KEY` in `.env`.
-
-3. Start the stack:
+2. Start the stack:
 
 ```bash
 docker compose up --build
 ```
 
-4. Open the local tools:
+The first startup pulls the default Ollama model, so it can take a few minutes.
+
+3. Open the local tools:
 
 - Airflow UI: `http://localhost:8080`
 - Marquez UI: `http://localhost:3000`
 - Marquez API: `http://localhost:5000`
+- Ollama API: `http://localhost:11434`
+
+## Default local AI mode
+
+The repo defaults to:
+
+- `LLM_MODEL=ollama:llama3.2`
+- `OLLAMA_MODEL_NAME=llama3.2`
+- `OLLAMA_BASE_URL=http://ollama:11434/v1`
+
+Those settings are passed into the Airflow containers and used by all example DAGs.
+
+If you want a stronger local model, change both `LLM_MODEL` and `OLLAMA_MODEL_NAME`, for example:
+
+```env
+LLM_MODEL=ollama:gpt-oss:20b
+OLLAMA_MODEL_NAME=gpt-oss:20b
+```
+
+Then rerun:
+
+```bash
+docker compose up --build
+```
+
+Smaller local models are convenient, but they may be less reliable for strict branching or structured outputs than larger local models or hosted APIs.
+
+## Optional OpenAI mode
+
+If you want to use OpenAI instead of Ollama, update `.env` like this:
+
+```env
+OPENAI_API_KEY=your-key
+LLM_MODEL=openai:gpt-4o-mini
+```
+
+Then restart the stack. The rest of the repo stays the same.
 
 ## Demo DAGs
 
 ### 1. `ai_support_router`
 
-This DAG demonstrates the two most immediately useful SDK patterns:
+This DAG demonstrates a local-model-friendly AI triage flow:
 
-- `@task.llm` to convert a raw incident into structured output
-- `@task.llm_branch` to choose the next task id dynamically
+- `@task.llm` to convert a raw incident into structured JSON
+- Python-side validation and routing so Ollama-sized models are more reliable locally
 
 Trigger it with:
 
