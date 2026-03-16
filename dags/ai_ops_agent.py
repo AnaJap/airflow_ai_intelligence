@@ -2,6 +2,7 @@
 Airflow AI SDK example that uses @task.agent with local tools to answer ops questions.
 """
 
+import os
 from pathlib import Path
 
 import pendulum
@@ -17,6 +18,7 @@ from airflow.models.dagrun import DagRun
 ROOT = Path("/opt/airflow")
 RAW_DATA = ROOT / "include" / "raw" / "orders.json"
 METRICS_FILE = ROOT / "include" / "processed" / "orders_metrics.json"
+DEFAULT_MODEL = os.getenv("LLM_MODEL", "ollama:llama3.2")
 
 
 def read_raw_orders_preview() -> str:
@@ -42,7 +44,7 @@ def read_latest_metrics() -> str:
 
 
 ops_agent = Agent(
-    "o3-mini",
+    DEFAULT_MODEL,
     system_prompt="""
     You are an Airflow operations copilot for a local demo environment.
     Use the available tools before answering.
@@ -73,11 +75,10 @@ def print_answer(answer: str) -> None:
     params={
         "question": "Explain the local stack, the raw dataset, and the first lineage checks to make in Marquez."
     },
-    tags=["ai-sdk", "agent"],
+    tags=["ai-sdk", "agent", "ollama"],
 )
 def ai_ops_agent():
     print_answer(answer_ops_question())
 
 
 ai_ops_agent()
-
