@@ -1,0 +1,6 @@
+{"order_id":"A-100","customer_id":"C-001","order_ts":"2025-01-01T09:15:00","product":"airflow training","status":"complete","quantity":2,"unit_price":49.5}
+{"order_id":"A-101","customer_id":"C-002","order_ts":"2025-01-01T10:20:00","product":"spark support","status":"pending","quantity":1,"unit_price":120.0}
+{"order_id":"A-102","customer_id":"C-003","order_ts":"2025-01-01T11:05:00","product":"lineage workshop","status":"complete","quantity":3,"unit_price":35.0}
+{"order_id":"A-103","customer_id":"C-004","order_ts":"2025-01-01T13:40:00","product":"airflow migration","status":"complete","quantity":1,"unit_price":180.0}
+{"order_id":"A-104","customer_id":"C-005","order_ts":"2025-01-01T15:10:00","product":"spark tuning","status":"failed","quantity":2,"unit_price":60.0}
+

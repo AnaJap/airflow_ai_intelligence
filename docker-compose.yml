@@ -1,0 +1,149 @@
+version: "3.9"
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: airflow-ai-sdk-demo:local
+  env_file:
+    - .env
+  environment: &airflow-env
+    AIRFLOW__API__BASE_URL: http://localhost:8080
+    AIRFLOW__API__PORT: 8080
+    AIRFLOW__API_AUTH__JWT_SECRET: airflow-ai-sdk-demo
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://api-server:8080/execution/
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__OPENLINEAGE__TRANSPORT: '{"type":"http","url":"http://marquez:5000","endpoint":"api/v1/lineage"}'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW__SCHEDULER__STANDALONE_DAG_PROCESSOR: "True"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+    AIRFLOW__WEBSERVER__RBAC: "True"
+    AIRFLOW__WEBSERVER__SECRET_KEY: airflow-ai-sdk-demo
+    OPENLINEAGE_DISABLED: "False"
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./include:/opt/airflow/include
+    - ./jobs:/opt/airflow/jobs
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+  depends_on:
+    postgres:
+      condition: service_healthy
+    marquez:
+      condition: service_started
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init/01-create-marquez-db.sql:/docker-entrypoint-initdb.d/01-create-marquez-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  marquez:
+    image: marquezproject/marquez:0.51.1
+    environment:
+      MARQUEZ_PORT: 5000
+      MARQUEZ_ADMIN_PORT: 5001
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  marquez-web:
+    image: marquezproject/marquez-web:0.51.1
+    environment:
+      MARQUEZ_HOST: marquez
+      MARQUEZ_PORT: 5000
+      WEB_PORT: 3000
+      REACT_APP_ADVANCED_SEARCH: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      marquez:
+        condition: service_started
+
+  db-migration:
+    <<: *airflow-common
+    command: ["airflow", "db", "migrate"]
+    restart: "no"
+
+  api-server:
+    <<: *airflow-common
+    command: ["airflow", "api-server"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      db-migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  scheduler:
+    <<: *airflow-common
+    command: ["airflow", "scheduler"]
+    depends_on:
+      db-migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  dag-processor:
+    <<: *airflow-common
+    command: ["airflow", "dag-processor"]
+    depends_on:
+      db-migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  triggerer:
+    <<: *airflow-common
+    command: ["airflow", "triggerer"]
+    depends_on:
+      db-migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type TriggererJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:

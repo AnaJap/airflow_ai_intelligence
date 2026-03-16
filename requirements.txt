@@ -1,0 +1,4 @@
+beautifulsoup4
+pyspark==3.5.5
+requests
+airflow-ai-sdk[duckduckgo,openai] @ git+https://github.com/astronomer/airflow-ai-sdk.git@70ec7cb03d34cc010c6f7face39f80664691be9c
